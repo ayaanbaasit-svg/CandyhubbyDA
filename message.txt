@@ -1,0 +1,1057 @@
+-- [[ LEAKED BY MARXYY ]] --
+
+-- // [1] SERVICES //
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local Stats = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- // [2] CONFIGURATION //
+local CONFIG = {
+
+    Names = {
+        ScreenGui     = "TRUBL",
+        MainFrame     = "MainFrame",
+        TopBar        = "TopBar",
+        ScrollFrame   = "ScrollFrame",
+        OverheadGui   = "OverheadGui",
+        OverheadFrame = "OverheadFrame",
+    },
+
+    Size = {
+        MainFrame   = UDim2.new(0, 280, 0, 760),
+        TopBar      = UDim2.new(1, 0, 0, 36),
+        Button      = UDim2.new(1, -10, 0, 42),
+        SectionLabel= UDim2.new(1, -10, 0, 22),
+        ScrollFrame = UDim2.new(1, 0, 1, -36),
+        OverheadFrame = UDim2.new(0, 130, 0, 44),
+    },
+
+    Position = {
+        MainFrame     = UDim2.new(0, 60, 0, 60),
+        OverheadFrame = UDim2.new(1, -160, 0, 60),
+    },
+
+    Colors = {
+        Background    = Color3.fromRGB(18, 18, 18),
+        TopBar        = Color3.fromRGB(18, 18, 18),
+        Button        = Color3.fromRGB(26, 26, 26),
+        ButtonActive  = Color3.fromRGB(26, 26, 26),
+        ButtonStroke  = Color3.fromRGB(180, 0, 0),
+        ButtonStrokeOff = Color3.fromRGB(50, 50, 50),
+        SectionDot    = Color3.fromRGB(220, 0, 0),
+        Text          = Color3.fromRGB(255, 255, 255),
+        SubText       = Color3.fromRGB(130, 130, 130),
+        Red           = Color3.fromRGB(220, 0, 0),
+        TopBarTitle   = Color3.fromRGB(255, 255, 255),
+        TopBarSide    = Color3.fromRGB(160, 160, 160),
+        MainStroke    = Color3.fromRGB(180, 0, 0),
+        OverheadBg    = Color3.fromRGB(26, 26, 26),
+        OverheadStroke= Color3.fromRGB(180, 0, 0),
+        OverheadUser  = Color3.fromRGB(220, 0, 0),
+        OverheadSpeed = Color3.fromRGB(200, 200, 200),
+    },
+
+    Font = Enum.Font.GothamBold,
+    FontSub = Enum.Font.Gotham,
+    TextSize = 13,
+
+    CornerRadius = UDim.new(0, 6),
+
+    -- Feature defaults (true = enabled on load)
+    Defaults = {
+        NormalSpeed    = false,
+        LoggerSpeed    = false,
+        DesyncSpeed    = false,
+        AutoPlay       = false,
+        AutoSteal      = false,
+        AutoPlayTimer  = false,
+        Aimbot         = false,
+        StealSpeed     = false,
+        AntiKick       = false,
+        AutoTP         = false,
+        InfiniteJump   = false,
+        Float          = false,
+        TPDown         = false,
+        CounterBat     = false,
+        MedusaCounter  = false,
+        AutoPlayMed    = false,
+        DropBrainrot   = false,
+        PostSteal      = false,
+        ResetChar      = false,
+        NoPlayerCollision = false,
+        FPSBoost       = false,
+        NoAnimation    = false,
+        PlayerESP      = false,
+        FOV            = false,
+        NightSky       = false,
+        Taunt          = false,
+    },
+
+    NormalWalkSpeed  = 16,
+    LoggerWalkSpeed  = 28,
+    DesyncWalkSpeed  = 20,
+    AutoTPRadius     = 90,
+    OverheadGuiSize  = 80,
+
+    LuarmorURL = "https://api.luarmor.net/files/v4/loaders/3e2330fb8dd8d9a22b9bb5055cfae313.lua",
+}
+
+-- // [3] OBJECT REFERENCES //
+local ScreenGui
+local MainFrame
+local TopBar
+local TitleLabel
+local FPSLabel
+local PingLabel
+local RadiusLabel
+local ScrollFrame
+local OverheadFrame
+local OverheadUserLabel
+local OverheadSpeedLabel
+
+local State = {}
+local Toggles = {}       -- [featureName] = { button, stroke, active }
+local HeartbeatConn
+local FPSCounter = 0
+local LastFPSTime = tick()
+
+-- // [4] UTILITY FUNCTIONS //
+
+local function getCharacter()
+    return LocalPlayer.Character
+end
+
+local function getHumanoid()
+    local char = getCharacter()
+    if not char then return end
+    return char:FindFirstChildOfClass("Humanoid")
+end
+
+local function getHRP()
+    local char = getCharacter()
+    if not char then return end
+    return char:FindFirstChild("HumanoidRootPart")
+        or char:FindFirstChild("UpperTorso")
+end
+
+local function getPing()
+    local ok, val = pcall(function()
+        return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+    end)
+    return ok and math.floor(val) or 0
+end
+
+local function getSpeed()
+    local hrp = getHRP()
+    if hrp then
+        local vel = hrp.Velocity
+        return math.floor(math.sqrt(vel.X^2 + vel.Z^2) * 10) / 10
+    end
+    return 0.0
+end
+
+local function findMyPlot()
+    local plotsFolder = workspace:FindFirstChild("Plots")
+    if not plotsFolder then return nil end
+    for _, plot in ipairs(plotsFolder:GetChildren()) do
+        local sign = plot:FindFirstChild("PlotSign")
+        if sign then
+            local yb = sign:FindFirstChild("YourBase")
+            if yb and yb.Enabled then
+                return plot
+            end
+        end
+    end
+    return nil
+end
+
+local function getPlotPodiums(plot)
+    if not plot then return {} end
+    local ap = plot:FindFirstChild("AnimalPodiums")
+    if not ap then return {} end
+    return ap:GetChildren()
+end
+
+local function disableAnimations()
+    local hum = getHumanoid()
+    if not hum then return end
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if animator then
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+            track:Stop()
+        end
+    end
+end
+
+local function enableNoPlayerCollision(active)
+    local char = getCharacter()
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CollisionGroup = active and "NoPlayerCollision" or "Default"
+        end
+    end
+end
+
+local function autoTeleportToAnimal()
+    local myPlot = findMyPlot()
+    if not myPlot then return end
+    local hrp = getHRP()
+    if not hrp then return end
+    local podiums = getPlotPodiums(myPlot)
+    local closest, dist = nil, CONFIG.AutoTPRadius
+    for _, pod in ipairs(podiums) do
+        local base = pod:FindFirstChild("Base")
+        local spawn = base and base:FindFirstChild("Spawn")
+        if spawn then
+            local d = (hrp.Position - spawn.Position).Magnitude
+            if d < dist then
+                dist = d
+                closest = spawn
+            end
+        end
+    end
+    if closest then
+        local pp = closest:FindFirstChild("PromptAttachment")
+        local prompt = pp and pp:FindFirstChildOfClass("ProximityPrompt")
+        if prompt then
+            prompt.Enabled = false
+            prompt.HoldDuration = 0
+            prompt.RequiresLineOfSight = false
+            prompt.MaxActivationDistance = 100
+            fireproximityprompt(prompt)
+            task.delay(0.1, function()
+                prompt.Enabled = true
+            end)
+        end
+    end
+end
+
+-- // [5] GUI CREATION //
+
+local function makeCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = radius or CONFIG.CornerRadius
+    c.Parent = parent
+    return c
+end
+
+local function makeStroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or CONFIG.Colors.ButtonStrokeOff
+    s.Thickness = thickness or 1.5
+    s.Parent = parent
+    return s
+end
+
+local function makePadding(parent, top, bottom, left, right)
+    local p = Instance.new("UIPadding")
+    p.PaddingTop    = UDim.new(0, top    or 0)
+    p.PaddingBottom = UDim.new(0, bottom or 0)
+    p.PaddingLeft   = UDim.new(0, left   or 0)
+    p.PaddingRight  = UDim.new(0, right  or 0)
+    p.Parent = parent
+    return p
+end
+
+local function makeLabel(parent, text, size, color, font, xAlign)
+    local l = Instance.new("TextLabel")
+    l.Text = text
+    l.TextSize = size or CONFIG.TextSize
+    l.TextColor3 = color or CONFIG.Colors.Text
+    l.Font = font or CONFIG.Font
+    l.BackgroundTransparency = 1
+    l.TextXAlignment = xAlign or Enum.TextXAlignment.Left
+    l.Size = UDim2.new(1, 0, 1, 0)
+    l.Parent = parent
+    return l
+end
+
+local function makeSectionHeader(parent, text)
+    local frame = Instance.new("Frame")
+    frame.Name = "Section_" .. text
+    frame.Size = CONFIG.Size.SectionLabel
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 7, 0, 7)
+    dot.Position = UDim2.new(0, 0, 0.5, -3)
+    dot.BackgroundColor3 = CONFIG.Colors.SectionDot
+    dot.BorderSizePixel = 0
+    dot.Parent = frame
+    makeCorner(dot, UDim.new(1, 0))
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -14, 1, 0)
+    lbl.Position = UDim2.new(0, 14, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text:upper()
+    lbl.TextSize = 11
+    lbl.Font = CONFIG.Font
+    lbl.TextColor3 = CONFIG.Colors.SubText
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = frame
+
+    return frame
+end
+
+local function makeToggleButton(parent, name, labelText, hasDropdown)
+    local btn = Instance.new("TextButton")
+    btn.Name = "Btn_" .. name
+    btn.Size = CONFIG.Size.Button
+    btn.BackgroundColor3 = CONFIG.Colors.Button
+    btn.BorderSizePixel = 0
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+
+    makeCorner(btn)
+    local stroke = makeStroke(btn, CONFIG.Colors.ButtonStrokeOff, 1.5)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, hasDropdown and -36 or -10, 1, 0)
+    lbl.Position = UDim2.new(0, 12, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextSize = CONFIG.TextSize
+    lbl.Font = CONFIG.Font
+    lbl.TextColor3 = CONFIG.Colors.Text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = btn
+
+    if hasDropdown then
+        local arrow = Instance.new("TextLabel")
+        arrow.Size = UDim2.new(0, 28, 1, 0)
+        arrow.Position = UDim2.new(1, -30, 0, 0)
+        arrow.BackgroundTransparency = 1
+        arrow.Text = "▾"
+        arrow.TextSize = 16
+        arrow.Font = CONFIG.Font
+        arrow.TextColor3 = CONFIG.Colors.SubText
+        arrow.TextXAlignment = Enum.TextXAlignment.Center
+        arrow.Parent = btn
+    end
+
+    return btn, stroke
+end
+
+local function makeSpeedRow(parent, rowName, labelText, defaultShell, defaultHorz)
+    local row = Instance.new("Frame")
+    row.Name = "Row_" .. rowName
+    row.Size = CONFIG.Size.Button
+    row.BackgroundColor3 = CONFIG.Colors.Button
+    row.BorderSizePixel = 0
+    row.Parent = parent
+    makeCorner(row)
+    local stroke = makeStroke(row, CONFIG.Colors.ButtonStrokeOff, 1.5)
+
+    -- Plus button
+    local plus = Instance.new("TextButton")
+    plus.Size = UDim2.new(0, 28, 0, 28)
+    plus.Position = UDim2.new(0, 8, 0.5, -14)
+    plus.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    plus.BorderSizePixel = 0
+    plus.Text = "+"
+    plus.TextSize = 18
+    plus.Font = CONFIG.Font
+    plus.TextColor3 = CONFIG.Colors.Red
+    plus.Parent = row
+    makeCorner(plus)
+    makeStroke(plus, CONFIG.Colors.Red, 1.2)
+
+    -- Main label
+    local mainLbl = Instance.new("TextLabel")
+    mainLbl.Size = UDim2.new(0, 110, 0.6, 0)
+    mainLbl.Position = UDim2.new(0, 44, 0, 4)
+    mainLbl.BackgroundTransparency = 1
+    mainLbl.Text = labelText
+    mainLbl.TextSize = CONFIG.TextSize
+    mainLbl.Font = CONFIG.Font
+    mainLbl.TextColor3 = CONFIG.Colors.Text
+    mainLbl.TextXAlignment = Enum.TextXAlignment.Left
+    mainLbl.Parent = row
+
+    -- Sub label
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Size = UDim2.new(0, 130, 0.4, 0)
+    subLbl.Position = UDim2.new(0, 44, 0.55, 0)
+    subLbl.BackgroundTransparency = 1
+    subLbl.Text = ""
+    subLbl.TextSize = 10
+    subLbl.Font = CONFIG.FontSub
+    subLbl.TextColor3 = CONFIG.Colors.SubText
+    subLbl.TextXAlignment = Enum.TextXAlignment.Left
+    subLbl.Parent = row
+
+    -- Shell spd
+    local shellHeader = Instance.new("TextLabel")
+    shellHeader.Size = UDim2.new(0, 50, 0.45, 0)
+    shellHeader.Position = UDim2.new(1, -110, 0, 3)
+    shellHeader.BackgroundTransparency = 1
+    shellHeader.Text = "shell spd"
+    shellHeader.TextSize = 9
+    shellHeader.Font = CONFIG.FontSub
+    shellHeader.TextColor3 = CONFIG.Colors.SubText
+    shellHeader.TextXAlignment = Enum.TextXAlignment.Center
+    shellHeader.Parent = row
+
+    local shellVal = Instance.new("TextLabel")
+    shellVal.Size = UDim2.new(0, 50, 0.45, 0)
+    shellVal.Position = UDim2.new(1, -110, 0.5, 0)
+    shellVal.BackgroundTransparency = 1
+    shellVal.Text = tostring(defaultShell)
+    shellVal.TextSize = 13
+    shellVal.Font = CONFIG.Font
+    shellVal.TextColor3 = CONFIG.Colors.Text
+    shellVal.TextXAlignment = Enum.TextXAlignment.Center
+    shellVal.Parent = row
+
+    -- Horiz spd
+    local horzHeader = Instance.new("TextLabel")
+    horzHeader.Size = UDim2.new(0, 50, 0.45, 0)
+    horzHeader.Position = UDim2.new(1, -56, 0, 3)
+    horzHeader.BackgroundTransparency = 1
+    horzHeader.Text = "horiz spd"
+    horzHeader.TextSize = 9
+    horzHeader.Font = CONFIG.FontSub
+    horzHeader.TextColor3 = CONFIG.Colors.SubText
+    horzHeader.TextXAlignment = Enum.TextXAlignment.Center
+    horzHeader.Parent = row
+
+    local horzVal = Instance.new("TextLabel")
+    horzVal.Size = UDim2.new(0, 50, 0.45, 0)
+    horzVal.Position = UDim2.new(1, -56, 0.5, 0)
+    horzVal.BackgroundTransparency = 1
+    horzVal.Text = tostring(defaultHorz)
+    horzVal.TextSize = 13
+    horzVal.Font = CONFIG.Font
+    horzVal.TextColor3 = CONFIG.Colors.Text
+    horzVal.TextXAlignment = Enum.TextXAlignment.Center
+    horzVal.Parent = row
+
+    return row, stroke, plus, subLbl
+end
+
+local function createGUI()
+    -- Destroy old
+    local old = CoreGui:FindFirstChild(CONFIG.Names.ScreenGui)
+    if old then old:Destroy() end
+
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = CONFIG.Names.ScreenGui
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = CoreGui
+
+    -- Main Frame
+    MainFrame = Instance.new("Frame")
+    MainFrame.Name = CONFIG.Names.MainFrame
+    MainFrame.Size = CONFIG.Size.MainFrame
+    MainFrame.Position = CONFIG.Position.MainFrame
+    MainFrame.BackgroundColor3 = CONFIG.Colors.Background
+    MainFrame.BorderSizePixel = 0
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = ScreenGui
+    makeCorner(MainFrame, UDim.new(0, 8))
+    makeStroke(MainFrame, CONFIG.Colors.MainStroke, 1.5)
+
+    -- Make draggable
+    MainFrame.Active = true
+    local dragging, dragStart, startPos
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    MainFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- Top Bar
+    TopBar = Instance.new("Frame")
+    TopBar.Name = CONFIG.Names.TopBar
+    TopBar.Size = CONFIG.Size.TopBar
+    TopBar.Position = UDim2.new(0, 0, 0, 0)
+    TopBar.BackgroundColor3 = CONFIG.Colors.TopBar
+    TopBar.BorderSizePixel = 0
+    TopBar.Parent = MainFrame
+
+    FPSLabel = Instance.new("TextLabel")
+    FPSLabel.Size = UDim2.new(0, 80, 1, 0)
+    FPSLabel.Position = UDim2.new(0, 8, 0, 0)
+    FPSLabel.BackgroundTransparency = 1
+    FPSLabel.Text = "FPS: 0\nPing: 0ms"
+    FPSLabel.TextSize = 9
+    FPSLabel.Font = CONFIG.FontSub
+    FPSLabel.TextColor3 = CONFIG.Colors.TopBarSide
+    FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FPSLabel.TextYAlignment = Enum.TextYAlignment.Center
+    FPSLabel.Parent = TopBar
+
+    TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(0, 80, 1, 0)
+    TitleLabel.Position = UDim2.new(0.5, -40, 0, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = "TRUBL"
+    TitleLabel.TextSize = 16
+    TitleLabel.Font = CONFIG.Font
+    TitleLabel.TextColor3 = CONFIG.Colors.TopBarTitle
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
+    TitleLabel.Parent = TopBar
+
+    RadiusLabel = Instance.new("TextLabel")
+    RadiusLabel.Size = UDim2.new(0, 60, 1, 0)
+    RadiusLabel.Position = UDim2.new(1, -66, 0, 0)
+    RadiusLabel.BackgroundTransparency = 1
+    RadiusLabel.Text = "Radius\n" .. CONFIG.AutoTPRadius
+    RadiusLabel.TextSize = 9
+    RadiusLabel.Font = CONFIG.FontSub
+    RadiusLabel.TextColor3 = CONFIG.Colors.TopBarSide
+    RadiusLabel.TextXAlignment = Enum.TextXAlignment.Right
+    RadiusLabel.TextYAlignment = Enum.TextYAlignment.Center
+    RadiusLabel.Parent = TopBar
+
+    -- Scroll Frame
+    ScrollFrame = Instance.new("ScrollingFrame")
+    ScrollFrame.Name = CONFIG.Names.ScrollFrame
+    ScrollFrame.Size = CONFIG.Size.ScrollFrame
+    ScrollFrame.Position = UDim2.new(0, 0, 0, 36)
+    ScrollFrame.BackgroundTransparency = 1
+    ScrollFrame.BorderSizePixel = 0
+    ScrollFrame.ScrollBarThickness = 3
+    ScrollFrame.ScrollBarImageColor3 = CONFIG.Colors.Red
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScrollFrame.Parent = MainFrame
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 5)
+    listLayout.Parent = ScrollFrame
+    makePadding(ScrollFrame, 8, 8, 5, 5)
+
+    -- // BUILD SECTIONS //
+
+    -- SPEED section
+    makeSectionHeader(ScrollFrame, "Speed").LayoutOrder = 1
+
+    local nBtn, nStroke, nPlus, nSub = makeSpeedRow(ScrollFrame, "NormalSpeed", "Normal Speed", 28, 58)
+    nBtn.LayoutOrder = 2
+    nSub.Text = "default mode"
+
+    local lBtn, lStroke, lPlus, lSub = makeSpeedRow(ScrollFrame, "LoggerSpeed", "Logger Speed", 28, 59)
+    lBtn.LayoutOrder = 3
+    lSub.Text = "use nigiliet logger"
+
+    local dBtn, dStroke, dPlus, dSub = makeSpeedRow(ScrollFrame, "DesyncSpeed", "Desync Speed", 20, 45)
+    dBtn.LayoutOrder = 4
+    dSub.Text = "uses lf desynced"
+
+    -- AUTO section
+    makeSectionHeader(ScrollFrame, "Auto").LayoutOrder = 5
+
+    local autoPlayBtn, autoPlayStroke = makeToggleButton(ScrollFrame, "AutoPlay", "Auto Play (L)", true)
+    autoPlayBtn.LayoutOrder = 6
+
+    local autoStealBtn, autoStealStroke = makeToggleButton(ScrollFrame, "AutoSteal", "Auto Steal", false)
+    autoStealBtn.LayoutOrder = 7
+
+    local autoTimerBtn, autoTimerStroke = makeToggleButton(ScrollFrame, "AutoPlayTimer", "Auto Play After Timer", false)
+    autoTimerBtn.LayoutOrder = 8
+
+    local aimbotBtn, aimbotStroke = makeToggleButton(ScrollFrame, "Aimbot", "Aimbot", true)
+    aimbotBtn.LayoutOrder = 9
+
+    -- MOVEMENT section
+    makeSectionHeader(ScrollFrame, "Movement").LayoutOrder = 10
+
+    local stealSpdBtn, stealSpdStroke = makeToggleButton(ScrollFrame, "StealSpeed", "Steal Speed", true)
+    stealSpdBtn.LayoutOrder = 11
+
+    local antiKickBtn, antiKickStroke = makeToggleButton(ScrollFrame, "AntiKick", "Anti Kick", false)
+    antiKickBtn.LayoutOrder = 12
+
+    local autoTPBtn, autoTPStroke = makeToggleButton(ScrollFrame, "AutoTP", "Auto TP", true)
+    autoTPBtn.LayoutOrder = 13
+
+    local infJumpBtn, infJumpStroke = makeToggleButton(ScrollFrame, "InfiniteJump", "Infinite Jump", true)
+    infJumpBtn.LayoutOrder = 14
+
+    local floatBtn, floatStroke = makeToggleButton(ScrollFrame, "Float", "Float", true)
+    floatBtn.LayoutOrder = 15
+
+    local tpDownBtn, tpDownStroke = makeToggleButton(ScrollFrame, "TPDown", "TP Down", true)
+    tpDownBtn.LayoutOrder = 16
+
+    -- COMBAT section
+    makeSectionHeader(ScrollFrame, "Combat").LayoutOrder = 17
+
+    local counterBatBtn, counterBatStroke = makeToggleButton(ScrollFrame, "CounterBat", "Counter Bat", true)
+    counterBatBtn.LayoutOrder = 18
+
+    local medusaBtn, medusaStroke = makeToggleButton(ScrollFrame, "MedusaCounter", "Medusa Counter", false)
+    medusaBtn.LayoutOrder = 19
+
+    local autoPlayMedBtn, autoPlayMedStroke = makeToggleButton(ScrollFrame, "AutoPlayMed", "AUTO PLAY AFTER MED", false)
+    autoPlayMedBtn.LayoutOrder = 20
+
+    local dropBrainrotBtn, dropBrainrotStroke = makeToggleButton(ScrollFrame, "DropBrainrot", "Drop Brainrot", true)
+    dropBrainrotBtn.LayoutOrder = 21
+
+    local postStealBtn, postStealStroke = makeToggleButton(ScrollFrame, "PostSteal", "Post Steal", true)
+    postStealBtn.LayoutOrder = 22
+
+    -- UTILITY section
+    makeSectionHeader(ScrollFrame, "Utility").LayoutOrder = 23
+
+    local resetCharBtn, resetCharStroke = makeToggleButton(ScrollFrame, "ResetChar", "Reset Char", true)
+    resetCharBtn.LayoutOrder = 24
+
+    local noCollBtn, noCollStroke = makeToggleButton(ScrollFrame, "NoPlayerCollision", "No Player Collision", false)
+    noCollBtn.LayoutOrder = 25
+
+    local fpsBoostBtn, fpsBoostStroke = makeToggleButton(ScrollFrame, "FPSBoost", "FPS Boost", false)
+    fpsBoostBtn.LayoutOrder = 26
+
+    local noAnimBtn, noAnimStroke = makeToggleButton(ScrollFrame, "NoAnimation", "No Animation", false)
+    noAnimBtn.LayoutOrder = 27
+
+    local espBtn, espStroke = makeToggleButton(ScrollFrame, "PlayerESP", "Player ESP", true)
+    espBtn.LayoutOrder = 28
+
+    local fovBtn, fovStroke = makeToggleButton(ScrollFrame, "FOV", "FOV", true)
+    fovBtn.LayoutOrder = 29
+
+    local nightSkyBtn, nightSkyStroke = makeToggleButton(ScrollFrame, "NightSky", "Night Sky", true)
+    nightSkyBtn.LayoutOrder = 30
+
+    local tauntBtn, tauntStroke = makeToggleButton(ScrollFrame, "Taunt", "Taunt", true)
+    tauntBtn.LayoutOrder = 31
+
+    -- SETTINGS section
+    makeSectionHeader(ScrollFrame, "Settings").LayoutOrder = 32
+
+    local settingsRow = Instance.new("Frame")
+    settingsRow.Name = "SettingsRow"
+    settingsRow.Size = CONFIG.Size.Button
+    settingsRow.BackgroundTransparency = 1
+    settingsRow.LayoutOrder = 33
+    settingsRow.Parent = ScrollFrame
+
+    local copyBtn = Instance.new("TextButton")
+    copyBtn.Size = UDim2.new(0.47, 0, 1, 0)
+    copyBtn.Position = UDim2.new(0, 0, 0, 0)
+    copyBtn.BackgroundColor3 = CONFIG.Colors.Button
+    copyBtn.BorderSizePixel = 0
+    copyBtn.Text = "Copy Config"
+    copyBtn.TextSize = CONFIG.TextSize
+    copyBtn.Font = CONFIG.Font
+    copyBtn.TextColor3 = CONFIG.Colors.Text
+    copyBtn.Parent = settingsRow
+    makeCorner(copyBtn)
+    makeStroke(copyBtn, CONFIG.Colors.ButtonStrokeOff, 1.2)
+
+    local loadBtn = Instance.new("TextButton")
+    loadBtn.Size = UDim2.new(0.47, 0, 1, 0)
+    loadBtn.Position = UDim2.new(0.53, 0, 0, 0)
+    loadBtn.BackgroundColor3 = CONFIG.Colors.Button
+    loadBtn.BorderSizePixel = 0
+    loadBtn.Text = "Load Config"
+    loadBtn.TextSize = CONFIG.TextSize
+    loadBtn.Font = CONFIG.Font
+    loadBtn.TextColor3 = CONFIG.Colors.Text
+    loadBtn.Parent = settingsRow
+    makeCorner(loadBtn)
+    makeStroke(loadBtn, CONFIG.Colors.ButtonStrokeOff, 1.2)
+
+    local configBox = Instance.new("TextBox")
+    configBox.Name = "ConfigBox"
+    configBox.Size = CONFIG.Size.Button
+    configBox.BackgroundColor3 = CONFIG.Colors.Button
+    configBox.BorderSizePixel = 0
+    configBox.Text = ""
+    configBox.PlaceholderText = "Paste config code here..."
+    configBox.TextSize = 11
+    configBox.Font = CONFIG.FontSub
+    configBox.TextColor3 = CONFIG.Colors.SubText
+    configBox.PlaceholderColor3 = CONFIG.Colors.SubText
+    configBox.LayoutOrder = 34
+    configBox.Parent = ScrollFrame
+    makeCorner(configBox)
+    makeStroke(configBox, CONFIG.Colors.ButtonStrokeOff, 1.2)
+
+    -- Overhead GUI Size slider row
+    local sliderRow = Instance.new("Frame")
+    sliderRow.Name = "SliderRow"
+    sliderRow.Size = CONFIG.Size.Button
+    sliderRow.BackgroundTransparency = 1
+    sliderRow.LayoutOrder = 35
+    sliderRow.Parent = ScrollFrame
+
+    local sliderLabel = Instance.new("TextLabel")
+    sliderLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    sliderLabel.BackgroundTransparency = 1
+    sliderLabel.Text = "Overhead GUI Size"
+    sliderLabel.TextSize = CONFIG.TextSize
+    sliderLabel.Font = CONFIG.Font
+    sliderLabel.TextColor3 = CONFIG.Colors.Text
+    sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    sliderLabel.Parent = sliderRow
+
+    local sliderValLabel = Instance.new("TextLabel")
+    sliderValLabel.Size = UDim2.new(0.15, 0, 1, 0)
+    sliderValLabel.Position = UDim2.new(0.85, 0, 0, 0)
+    sliderValLabel.BackgroundTransparency = 1
+    sliderValLabel.Text = tostring(CONFIG.OverheadGuiSize)
+    sliderValLabel.TextSize = CONFIG.TextSize
+    sliderValLabel.Font = CONFIG.Font
+    sliderValLabel.TextColor3 = CONFIG.Colors.Text
+    sliderValLabel.TextXAlignment = Enum.TextXAlignment.Right
+    sliderValLabel.Parent = sliderRow
+
+    -- Register all toggles
+    Toggles["NormalSpeed"]       = { button = nBtn,            stroke = nStroke,            active = CONFIG.Defaults.NormalSpeed }
+    Toggles["LoggerSpeed"]       = { button = lBtn,            stroke = lStroke,            active = CONFIG.Defaults.LoggerSpeed }
+    Toggles["DesyncSpeed"]       = { button = dBtn,            stroke = dStroke,            active = CONFIG.Defaults.DesyncSpeed }
+    Toggles["AutoPlay"]          = { button = autoPlayBtn,     stroke = autoPlayStroke,     active = CONFIG.Defaults.AutoPlay }
+    Toggles["AutoSteal"]         = { button = autoStealBtn,    stroke = autoStealStroke,    active = CONFIG.Defaults.AutoSteal }
+    Toggles["AutoPlayTimer"]     = { button = autoTimerBtn,    stroke = autoTimerStroke,    active = CONFIG.Defaults.AutoPlayTimer }
+    Toggles["Aimbot"]            = { button = aimbotBtn,       stroke = aimbotStroke,       active = CONFIG.Defaults.Aimbot }
+    Toggles["StealSpeed"]        = { button = stealSpdBtn,     stroke = stealSpdStroke,     active = CONFIG.Defaults.StealSpeed }
+    Toggles["AntiKick"]          = { button = antiKickBtn,     stroke = antiKickStroke,     active = CONFIG.Defaults.AntiKick }
+    Toggles["AutoTP"]            = { button = autoTPBtn,       stroke = autoTPStroke,       active = CONFIG.Defaults.AutoTP }
+    Toggles["InfiniteJump"]      = { button = infJumpBtn,      stroke = infJumpStroke,      active = CONFIG.Defaults.InfiniteJump }
+    Toggles["Float"]             = { button = floatBtn,        stroke = floatStroke,        active = CONFIG.Defaults.Float }
+    Toggles["TPDown"]            = { button = tpDownBtn,       stroke = tpDownStroke,       active = CONFIG.Defaults.TPDown }
+    Toggles["CounterBat"]        = { button = counterBatBtn,   stroke = counterBatStroke,   active = CONFIG.Defaults.CounterBat }
+    Toggles["MedusaCounter"]     = { button = medusaBtn,       stroke = medusaStroke,       active = CONFIG.Defaults.MedusaCounter }
+    Toggles["AutoPlayMed"]       = { button = autoPlayMedBtn,  stroke = autoPlayMedStroke,  active = CONFIG.Defaults.AutoPlayMed }
+    Toggles["DropBrainrot"]      = { button = dropBrainrotBtn, stroke = dropBrainrotStroke, active = CONFIG.Defaults.DropBrainrot }
+    Toggles["PostSteal"]         = { button = postStealBtn,    stroke = postStealStroke,    active = CONFIG.Defaults.PostSteal }
+    Toggles["ResetChar"]         = { button = resetCharBtn,    stroke = resetCharStroke,    active = CONFIG.Defaults.ResetChar }
+    Toggles["NoPlayerCollision"] = { button = noCollBtn,       stroke = noCollStroke,       active = CONFIG.Defaults.NoPlayerCollision }
+    Toggles["FPSBoost"]          = { button = fpsBoostBtn,     stroke = fpsBoostStroke,     active = CONFIG.Defaults.FPSBoost }
+    Toggles["NoAnimation"]       = { button = noAnimBtn,       stroke = noAnimStroke,       active = CONFIG.Defaults.NoAnimation }
+    Toggles["PlayerESP"]         = { button = espBtn,          stroke = espStroke,          active = CONFIG.Defaults.PlayerESP }
+    Toggles["FOV"]               = { button = fovBtn,          stroke = fovStroke,          active = CONFIG.Defaults.FOV }
+    Toggles["NightSky"]          = { button = nightSkyBtn,     stroke = nightSkyStroke,     active = CONFIG.Defaults.NightSky }
+    Toggles["Taunt"]             = { button = tauntBtn,        stroke = tauntStroke,        active = CONFIG.Defaults.Taunt }
+
+    -- Overhead notification frame
+    OverheadFrame = Instance.new("Frame")
+    OverheadFrame.Name = CONFIG.Names.OverheadFrame
+    OverheadFrame.Size = CONFIG.Size.OverheadFrame
+    OverheadFrame.Position = CONFIG.Position.OverheadFrame
+    OverheadFrame.BackgroundColor3 = CONFIG.Colors.OverheadBg
+    OverheadFrame.BorderSizePixel = 0
+    OverheadFrame.Parent = ScreenGui
+    makeCorner(OverheadFrame, UDim.new(0, 6))
+    makeStroke(OverheadFrame, CONFIG.Colors.OverheadStroke, 1.5)
+
+    OverheadUserLabel = Instance.new("TextLabel")
+    OverheadUserLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    OverheadUserLabel.BackgroundTransparency = 1
+    OverheadUserLabel.Text = "TRUBL USER"
+    OverheadUserLabel.TextSize = 11
+    OverheadUserLabel.Font = CONFIG.Font
+    OverheadUserLabel.TextColor3 = CONFIG.Colors.OverheadUser
+    OverheadUserLabel.TextXAlignment = Enum.TextXAlignment.Center
+    OverheadUserLabel.Parent = OverheadFrame
+
+    OverheadSpeedLabel = Instance.new("TextLabel")
+    OverheadSpeedLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    OverheadSpeedLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    OverheadSpeedLabel.BackgroundTransparency = 1
+    OverheadSpeedLabel.Text = "SPEED: 0.0"
+    OverheadSpeedLabel.TextSize = 11
+    OverheadSpeedLabel.Font = CONFIG.Font
+    OverheadSpeedLabel.TextColor3 = CONFIG.Colors.OverheadSpeed
+    OverheadSpeedLabel.TextXAlignment = Enum.TextXAlignment.Center
+    OverheadSpeedLabel.Parent = OverheadFrame
+end
+
+-- // [6] FUNCTIONALITY //
+
+local function setToggle(name, value)
+    local t = Toggles[name]
+    if not t then return end
+    t.active = value
+    t.stroke.Color = value and CONFIG.Colors.ButtonStroke or CONFIG.Colors.ButtonStrokeOff
+    State[name] = value
+end
+
+local function bindToggle(name, callback)
+    local t = Toggles[name]
+    if not t then return end
+    t.button.MouseButton1Click:Connect(function()
+        local newVal = not t.active
+        setToggle(name, newVal)
+        if callback then callback(newVal) end
+    end)
+    -- Apply default
+    setToggle(name, t.active)
+    if callback then callback(t.active) end
+end
+
+local function applyWalkSpeed(speed)
+    local hum = getHumanoid()
+    if hum then hum.WalkSpeed = speed end
+end
+
+local function setupFeatures()
+    -- Normal Speed
+    bindToggle("NormalSpeed", function(active)
+        if active then
+            setToggle("LoggerSpeed", false)
+            setToggle("DesyncSpeed", false)
+            applyWalkSpeed(CONFIG.NormalWalkSpeed)
+        end
+    end)
+
+    -- Logger Speed
+    bindToggle("LoggerSpeed", function(active)
+        if active then
+            setToggle("NormalSpeed", false)
+            setToggle("DesyncSpeed", false)
+            applyWalkSpeed(CONFIG.LoggerWalkSpeed)
+        end
+    end)
+
+    -- Desync Speed
+    bindToggle("DesyncSpeed", function(active)
+        if active then
+            setToggle("NormalSpeed", false)
+            setToggle("LoggerSpeed", false)
+            applyWalkSpeed(CONFIG.DesyncWalkSpeed)
+        end
+    end)
+
+    -- Auto Steal
+    bindToggle("AutoSteal", function(_) end)
+
+    -- Auto Play
+    bindToggle("AutoPlay", function(_) end)
+
+    -- Auto Play After Timer
+    bindToggle("AutoPlayTimer", function(_) end)
+
+    -- Aimbot
+    bindToggle("Aimbot", function(_) end)
+
+    -- Steal Speed
+    bindToggle("StealSpeed", function(_) end)
+
+    -- Anti Kick
+    bindToggle("AntiKick", function(_) end)
+
+    -- Auto TP
+    bindToggle("AutoTP", function(_) end)
+
+    -- Infinite Jump
+    bindToggle("InfiniteJump", function(active)
+        if active then
+            UserInputService.JumpRequest:Connect(function()
+                if not State["InfiniteJump"] then return end
+                local hum = getHumanoid()
+                if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+            end)
+        end
+    end)
+
+    -- Float
+    bindToggle("Float", function(active)
+        local hrp = getHRP()
+        if hrp and active then
+            local bg = Instance.new("BodyGyro")
+            bg.Name = "TRUBL_Float"
+            bg.MaxTorque = Vector3.new(0, 0, 0)
+            bg.Parent = hrp
+        else
+            local hrp2 = getHRP()
+            if hrp2 then
+                local bg = hrp2:FindFirstChild("TRUBL_Float")
+                if bg then bg:Destroy() end
+            end
+        end
+    end)
+
+    -- TP Down
+    bindToggle("TPDown", function(active)
+        if active then
+            local hrp = getHRP()
+            if hrp then
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, -50, 0)
+            end
+        end
+    end)
+
+    -- Counter Bat
+    bindToggle("CounterBat", function(_) end)
+
+    -- Medusa Counter
+    bindToggle("MedusaCounter", function(_) end)
+
+    -- Auto Play After Med
+    bindToggle("AutoPlayMed", function(_) end)
+
+    -- Drop Brainrot
+    bindToggle("DropBrainrot", function(_) end)
+
+    -- Post Steal
+    bindToggle("PostSteal", function(_) end)
+
+    -- Reset Char
+    bindToggle("ResetChar", function(active)
+        if active then
+            local hum = getHumanoid()
+            if hum then hum.Health = 0 end
+            setToggle("ResetChar", false)
+        end
+    end)
+
+    -- No Player Collision
+    bindToggle("NoPlayerCollision", function(active)
+        enableNoPlayerCollision(active)
+    end)
+
+    -- FPS Boost
+    bindToggle("FPSBoost", function(active)
+        if active then
+            game:GetService("Lighting").GlobalShadows = false
+            workspace.StreamingEnabled = false
+        else
+            game:GetService("Lighting").GlobalShadows = true
+        end
+    end)
+
+    -- No Animation
+    bindToggle("NoAnimation", function(active)
+        if active then disableAnimations() end
+    end)
+
+    -- Player ESP
+    bindToggle("PlayerESP", function(active)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local char = plr.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local existing = hrp:FindFirstChild("TRUBL_ESP")
+                        if active and not existing then
+                            local bb = Instance.new("BillboardGui")
+                            bb.Name = "TRUBL_ESP"
+                            bb.Size = UDim2.new(0, 60, 0, 20)
+                            bb.StudsOffset = Vector3.new(0, 3, 0)
+                            bb.AlwaysOnTop = true
+                            bb.Parent = hrp
+                            local lbl = Instance.new("TextLabel")
+                            lbl.Size = UDim2.new(1, 0, 1, 0)
+                            lbl.BackgroundTransparency = 1
+                            lbl.Text = plr.Name
+                            lbl.TextSize = 12
+                            lbl.Font = CONFIG.Font
+                            lbl.TextColor3 = CONFIG.Colors.Red
+                            lbl.Parent = bb
+                        elseif not active and existing then
+                            existing:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    -- FOV
+    bindToggle("FOV", function(active)
+        local cam = workspace.CurrentCamera
+        if cam then
+            cam.FieldOfView = active and 90 or 70
+        end
+    end)
+
+    -- Night Sky
+    bindToggle("NightSky", function(active)
+        local lighting = game:GetService("Lighting")
+        lighting.ClockTime = active and 0 or 14
+        lighting.Ambient = active and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(70, 70, 70)
+    end)
+
+    -- Taunt
+    bindToggle("Taunt", function(_) end)
+end
+
+-- // [7] INITIALIZATION //
+
+local function init()
+    createGUI()
+    setupFeatures()
+
+    -- Load luarmor module
+    pcall(function()
+        loadstring(game:HttpGet(CONFIG.LuarmorURL, true))()
+    end)
+
+    -- Heartbeat loop
+    HeartbeatConn = RunService.Heartbeat:Connect(function(dt)
+        FPSCounter = FPSCounter + 1
+        local now = tick()
+        if now - LastFPSTime >= 1 then
+            local fps = math.floor(FPSCounter / (now - LastFPSTime))
+            local ping = getPing()
+            if FPSLabel then
+                FPSLabel.Text = "FPS: " .. fps .. "\nPing: " .. ping .. "ms"
+            end
+            FPSCounter = 0
+            LastFPSTime = now
+        end
+
+        -- Overhead speed
+        local speed = getSpeed()
+        if OverheadSpeedLabel then
+            OverheadSpeedLabel.Text = "SPEED: " .. string.format("%.1f", speed)
+        end
+
+        -- Auto Steal loop
+        if State["AutoSteal"] then
+            autoTeleportToAnimal()
+        end
+
+        -- Auto TP loop
+        if State["AutoTP"] then
+            autoTeleportToAnimal()
+        end
+
+        -- Walk speed maintenance
+        if State["NormalSpeed"] then applyWalkSpeed(CONFIG.NormalWalkSpeed)
+        elseif State["LoggerSpeed"] then applyWalkSpeed(CONFIG.LoggerWalkSpeed)
+        elseif State["DesyncSpeed"] then applyWalkSpeed(CONFIG.DesyncWalkSpeed)
+        end
+    end)
+end
+
+init()
